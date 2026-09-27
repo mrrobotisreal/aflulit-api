@@ -36,8 +36,11 @@ var ErrNotFound = errors.New("backup not found")
 type Info struct {
 	Name string
 	Size int64
-	// Time is the snapshot moment parsed from the name (UTC).
+	// Time is the snapshot moment parsed from the name (UTC); for a media
+	// bundle (T63) it is the file's modification time.
 	Time time.Time
+	// Media marks a T63 scenario media bundle (never pruned).
+	Media bool
 }
 
 // Store is a directory of backup files.
@@ -103,17 +106,30 @@ func (s *Store) List() ([]Info, error) {
 		if !e.Type().IsRegular() {
 			continue
 		}
-		p := naming.Parse(e.Name())
-		if p == nil {
+		name := e.Name()
+		p := naming.Parse(name)
+		if p == nil && !naming.IsMedia(name) {
 			continue
 		}
 		fi, err := e.Info()
 		if err != nil {
 			continue
 		}
+		// T63 media bundles carry no stamp in the name; their time is the
+		// file's mtime (informational — the app orders them by run, not by
+		// this) and they sort after every snapshot.
+		if p == nil {
+			infos = append(infos, Info{Name: name, Size: fi.Size(), Time: fi.ModTime().UTC(), Media: true})
+			continue
+		}
 		infos = append(infos, Info{Name: p.Name, Size: fi.Size(), Time: p.Time})
 	}
-	sort.Slice(infos, func(i, j int) bool { return infos[i].Time.After(infos[j].Time) })
+	sort.Slice(infos, func(i, j int) bool {
+		if infos[i].Media != infos[j].Media {
+			return !infos[i].Media
+		}
+		return infos[i].Time.After(infos[j].Time)
+	})
 	return infos, nil
 }
 
@@ -145,9 +161,12 @@ func (s *Store) Prune() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	names := make([]string, len(infos))
-	for i, in := range infos {
-		names[i] = in.Name
+	names := make([]string, 0, len(infos))
+	for _, in := range infos {
+		if in.Media {
+			continue // T63 bundles are immutable and never pruned (§10.3).
+		}
+		names = append(names, in.Name)
 	}
 	plan := retention.PlanRetention(names, s.dailyDays)
 	pruned := []string{}

@@ -174,3 +174,51 @@ func TestListNewestFirst(t *testing.T) {
 		t.Fatalf("expected newest first, got %+v", infos)
 	}
 }
+
+// T63: media bundles ("sumrak-media-<runId>.json") share the store with the
+// snapshots — stored, listed (after every snapshot), served — but retention
+// never touches them.
+func TestMediaBundlesStoredListedNeverPruned(t *testing.T) {
+	s := newStore(t)
+	media := "sumrak-media-mg1x2k3a-abc12def00.json"
+	if _, err := s.Put(media, strings.NewReader(`{"format":"sumrak-backup","kind":"media"}`)); err != nil {
+		t.Fatalf("media put: %v", err)
+	}
+	// Enough dated snapshots to push retention past the daily window.
+	base := time.Date(2026, 1, 1, 3, 0, 0, 0, time.UTC)
+	for i := 0; i < 40; i++ {
+		if _, err := s.Put(nameAt(base.AddDate(0, 0, i)), strings.NewReader("x")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	infos, err := s.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if last := infos[len(infos)-1]; last.Name != media || !last.Media {
+		t.Fatalf("media bundle should list last and be flagged: %+v", last)
+	}
+	pruned, err := s.Prune()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pruned) == 0 {
+		t.Fatalf("expected snapshot pruning to happen")
+	}
+	for _, n := range pruned {
+		if n == media {
+			t.Fatalf("media bundle was pruned")
+		}
+	}
+	f, _, err := s.Open(media)
+	if err != nil {
+		t.Fatalf("media bundle should still open: %v", err)
+	}
+	f.Close()
+	if _, err := s.Put(media, strings.NewReader("again")); !errors.Is(err, ErrExists) {
+		t.Fatalf("media bundles are immutable (create-only): %v", err)
+	}
+	if _, err := s.Put("sumrak-media-../x.json", strings.NewReader("x")); !errors.Is(err, ErrBadName) {
+		t.Fatalf("traversal in a media name must be rejected: %v", err)
+	}
+}
