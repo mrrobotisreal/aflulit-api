@@ -91,8 +91,9 @@ downloaded or run on a development machine.
 | `ASR_TIMEOUT_SECONDS` | `120` | 5–150 |
 | `ASR_MAX_PARALLEL` | `1` | 1–2; extra requests get `429 busy` |
 | `ASR_WORD_TIMESTAMPS` | `false` | adds `--word_timestamps True` |
-| `ASR_TOKEN` | unset | optional second bearer for the ASR route only (≠ `SYNCD_TOKEN`) | `.env` and `*firebase-adminsdk*.json` are gitignored
-and unused (ADR-0008 §3).
+| `ASR_TOKEN` | unset | optional second bearer for the ASR route only (≠ `SYNCD_TOKEN`) |
+
+`.env` and `*firebase-adminsdk*.json` are gitignored and unused (ADR-0008 §3).
 
 ## Deploy
 
