@@ -1,3 +1,10 @@
-aflulit-firebase-adminsdk.json
+# Secrets — never committed (ADR-0008 §3: the admin key stays on disk, unused).
 .env
+.env.*
+aflulit-firebase-adminsdk.json
+*firebase-adminsdk*.json
 
+# Build + local data
+bin/
+data/
+.DS_Store
