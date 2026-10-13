@@ -1,8 +1,9 @@
-// Package server wires syncd's three endpoints (design §9 contract):
+// Package server wires the service's endpoints:
 //
-//	PUT /backup?name=<file>  store an opaque encrypted archive (create-only)
-//	GET /backups             list stored archives (name, size, timestamp)
-//	GET /backup/{name}       return one archive
+//	PUT /backup?name=<file>   store an opaque encrypted archive (create-only)
+//	GET /backups              list stored archives (name, size, timestamp)
+//	GET /backup/{name}        return one archive
+//	POST /v1/transcriptions   Whisper he/en transcription (T12; only when ASR is enabled)
 //
 // Every route — and every unknown path — requires bearer auth. Archive
 // names are the Sumrak T20 file names; the name in the URL is the id.
@@ -14,22 +15,39 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"time"
 
+	"github.com/mrrobotisreal/aflulit-api/internal/asr"
 	"github.com/mrrobotisreal/aflulit-api/internal/auth"
 	"github.com/mrrobotisreal/aflulit-api/internal/storage"
 )
 
-// Options configures a syncd handler.
+// TranscriptionsPath is the ASR route (ADR-0008 §2).
+const TranscriptionsPath = "/v1/transcriptions"
+
+// Options configures the handler.
 type Options struct {
 	Token        string
 	MaxBodyBytes int64
 	Log          *slog.Logger
+	// ASR, when non-nil, registers POST /v1/transcriptions.
+	ASR *ASROptions
 }
 
-// New returns the complete syncd http.Handler: auth wrapped around the
-// routed endpoints.
+// ASROptions configures the transcription route (T12).
+type ASROptions struct {
+	Runner asr.Runner
+	// Token, when set, is the only bearer the ASR route accepts (Decision 1).
+	Token           string
+	MaxUploadBytes  int64
+	MaxAudioSeconds int
+	Timeout         time.Duration
+}
+
+// New returns the complete http.Handler: auth wrapped around the routed
+// endpoints. Unknown paths 401 like everything else.
 func New(store *storage.Store, opts Options) http.Handler {
-	s := &server{store: store, maxBody: opts.MaxBodyBytes, log: opts.Log}
+	s := &server{store: store, maxBody: opts.MaxBodyBytes, log: opts.Log, asr: opts.ASR}
 	if s.log == nil {
 		s.log = slog.Default()
 	}
@@ -37,13 +55,19 @@ func New(store *storage.Store, opts Options) http.Handler {
 	mux.HandleFunc("PUT /backup", s.handlePut)
 	mux.HandleFunc("GET /backups", s.handleList)
 	mux.HandleFunc("GET /backup/{name}", s.handleGet)
-	return auth.Middleware(opts.Token, mux)
+	asrToken := ""
+	if opts.ASR != nil {
+		mux.HandleFunc("POST "+TranscriptionsPath, s.handleTranscribe)
+		asrToken = opts.ASR.Token
+	}
+	return auth.Split(opts.Token, asrToken, TranscriptionsPath, mux)
 }
 
 type server struct {
 	store   *storage.Store
 	maxBody int64
 	log     *slog.Logger
+	asr     *ASROptions
 }
 
 // listedBackup is one row of GET /backups. TimestampMs comes from the name

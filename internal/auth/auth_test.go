@@ -53,3 +53,32 @@ func TestRejections(t *testing.T) {
 		}
 	}
 }
+
+func TestSplitRoutesTokensByPath(t *testing.T) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
+	const asrToken = "asr-token-fedcba9876543210"
+	h := Split(token, asrToken, "/v1/transcriptions", inner)
+	try := func(path, bearer string) int {
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		if bearer != "" {
+			req.Header.Set("Authorization", "Bearer "+bearer)
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec.Code
+	}
+	if try("/v1/transcriptions", asrToken) != 200 || try("/v1/transcriptions", token) != 401 || try("/v1/transcriptions", "") != 401 {
+		t.Fatal("ASR path must accept only the ASR token")
+	}
+	if try("/backups", token) != 200 || try("/backups", asrToken) != 401 || try("/other", asrToken) != 401 {
+		t.Fatal("backup and unknown paths must accept only the main token")
+	}
+	shared := Split(token, "", "/v1/transcriptions", inner)
+	req := httptest.NewRequest(http.MethodPost, "/v1/transcriptions", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	shared.ServeHTTP(rec, req)
+	if rec.Code != 200 {
+		t.Fatal("with no ASR token, the main token must open the ASR path")
+	}
+}
