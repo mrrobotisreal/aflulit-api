@@ -14,18 +14,38 @@ Group=syncd
 #   SYNCD_TOKEN=<64-hex-char bearer token>
 #   SYNCD_ADDR=:8787
 #   SYNCD_DATA_DIR=/var/lib/syncd
+#   ASR_* / WHISPER_* for the transcription endpoint (deploy/syncd.env.example)
 EnvironmentFile=/etc/syncd/syncd.env
 ExecStart=/usr/local/bin/syncd
 Restart=on-failure
 RestartSec=3
+TimeoutStopSec=15
 
-# Hardening: syncd needs nothing but its data dir.
+# Hardening: syncd needs nothing but its data dir — and, with ASR_ENABLED=true,
+# read access to the whisper-ctranslate2 venv + model cache and a scratch
+# TMPDIR with room for a 10 MB WAV and the CLI's JSON per request.
 StateDirectory=syncd
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/var/lib/syncd
 PrivateTmp=true
+UMask=0077
+
+# --- ASR additions (uncomment with ASR_ENABLED=true; adjust paths) ----------
+# ProtectHome=true above means the venv and the model cache MUST live outside
+# /home (e.g. /opt/creatv/whisper-ct2 and /var/cache/whisper), or be
+# allow-listed here with ReadOnlyPaths=/home/<user>/... — the former is
+# recommended. The service user also needs to be in the group that owns the
+# venv and the GPU device nodes (usually `video` and/or `render`).
+# SupplementaryGroups=video render
+# ReadOnlyPaths=/opt/creatv/whisper-ct2 /var/cache/whisper
+# Environment=TMPDIR=/var/tmp/syncd-asr
+# ReadWritePaths=/var/lib/syncd /var/tmp/syncd-asr
+# A loaded large-v3 on CUDA sits around 3–4 GB of host RAM in the CLI process;
+# a generous cap keeps a leak from taking the box down while never starving
+# a normal request:
+# MemoryMax=8G
 
 [Install]
 WantedBy=multi-user.target
