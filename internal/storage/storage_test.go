@@ -21,12 +21,12 @@ func newStore(t *testing.T) *Store {
 }
 
 func nameAt(t time.Time) string {
-	return fmt.Sprintf("sumrak-backup-%sZ.json", t.UTC().Format("20060102-150405"))
+	return fmt.Sprintf("aflulit-backup-%sZ.json", t.UTC().Format("20060102-150405"))
 }
 
 func TestPutListOpenRoundTrip(t *testing.T) {
 	s := newStore(t)
-	name := "sumrak-backup-20260823-120000Z.json"
+	name := "aflulit-backup-20260823-120000Z.json"
 	payload := `{"v":1,"cipher":{}}`
 
 	n, err := s.Put(name, strings.NewReader(payload))
@@ -58,7 +58,7 @@ func TestPutListOpenRoundTrip(t *testing.T) {
 
 func TestPutIsCreateOnly(t *testing.T) {
 	s := newStore(t)
-	name := "sumrak-backup-20260823-120000Z.json"
+	name := "aflulit-backup-20260823-120000Z.json"
 	if _, err := s.Put(name, strings.NewReader("first")); err != nil {
 		t.Fatal(err)
 	}
@@ -76,8 +76,8 @@ func TestBadNamesRejectedEverywhere(t *testing.T) {
 	s := newStore(t)
 	for _, bad := range []string{
 		"", "notes.txt", "../escape.json",
-		"sumrak-backup-20261301-120000Z.json", // month 13
-		"sumrak-backup-20260823-120000Z.json/./x",
+		"aflulit-backup-20261301-120000Z.json", // month 13
+		"aflulit-backup-20260823-120000Z.json/./x",
 	} {
 		if _, err := s.Put(bad, strings.NewReader("x")); !errors.Is(err, ErrBadName) {
 			t.Errorf("Put(%q): expected ErrBadName, got %v", bad, err)
@@ -90,7 +90,7 @@ func TestBadNamesRejectedEverywhere(t *testing.T) {
 
 func TestOpenMissing(t *testing.T) {
 	s := newStore(t)
-	if _, _, err := s.Open("sumrak-backup-20260823-120000Z.json"); !errors.Is(err, ErrNotFound) {
+	if _, _, err := s.Open("aflulit-backup-20260823-120000Z.json"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
 }
@@ -106,7 +106,7 @@ func TestListIgnoresStrangersAndTempFiles(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := s.Put("sumrak-backup-20260823-120000Z.json", strings.NewReader("x")); err != nil {
+	if _, err := s.Put("aflulit-backup-20260823-120000Z.json", strings.NewReader("x")); err != nil {
 		t.Fatal(err)
 	}
 	infos, err := s.List()
@@ -124,7 +124,7 @@ func TestPruneAppliesRingBufferAndSparesStrangers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// 40 consecutive daily backups (T20 retention case: 30 newest dates kept,
+	// 40 consecutive daily backups (Sumrak T20 retention case: 30 newest dates kept,
 	// July collapses to its latest → 9 pruned).
 	for i := 0; i < 40; i++ {
 		name := nameAt(time.Date(2026, 7, 20+i, 3, 0, 0, 0, time.UTC))
@@ -175,13 +175,13 @@ func TestListNewestFirst(t *testing.T) {
 	}
 }
 
-// T63: media bundles ("sumrak-media-<runId>.json") share the store with the
+// Sumrak T63: media bundles ("aflulit-media-<runId>.json") share the store with the
 // snapshots — stored, listed (after every snapshot), served — but retention
 // never touches them.
 func TestMediaBundlesStoredListedNeverPruned(t *testing.T) {
 	s := newStore(t)
-	media := "sumrak-media-mg1x2k3a-abc12def00.json"
-	if _, err := s.Put(media, strings.NewReader(`{"format":"sumrak-backup","kind":"media"}`)); err != nil {
+	media := "aflulit-media-mg1x2k3a-abc12def00.json"
+	if _, err := s.Put(media, strings.NewReader(`{"format":"aflulit-backup","kind":"media"}`)); err != nil {
 		t.Fatalf("media put: %v", err)
 	}
 	// Enough dated snapshots to push retention past the daily window.
@@ -218,7 +218,7 @@ func TestMediaBundlesStoredListedNeverPruned(t *testing.T) {
 	if _, err := s.Put(media, strings.NewReader("again")); !errors.Is(err, ErrExists) {
 		t.Fatalf("media bundles are immutable (create-only): %v", err)
 	}
-	if _, err := s.Put("sumrak-media-../x.json", strings.NewReader("x")); !errors.Is(err, ErrBadName) {
+	if _, err := s.Put("aflulit-media-../x.json", strings.NewReader("x")); !errors.Is(err, ErrBadName) {
 		t.Fatalf("traversal in a media name must be rejected: %v", err)
 	}
 }

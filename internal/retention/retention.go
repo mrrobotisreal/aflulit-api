@@ -1,4 +1,4 @@
-// Package retention ports the T20 ring-buffer retention rule (Sumrak app,
+// Package retention ports the Sumrak T20 ring-buffer retention rule (app side:
 // features/backup/retention.ts) so both backup targets stay behaviorally
 // identical: keep every backup from the 30 most recent distinct UTC dates
 // present in the store, and beyond that window one per calendar month (the
@@ -13,10 +13,10 @@ package retention
 import (
 	"sort"
 
-	"github.com/mrrobotisreal/sumrak-api/internal/naming"
+	"github.com/mrrobotisreal/aflulit-api/internal/naming"
 )
 
-// DefaultDailyDays is the T20 window: backups from this many distinct
+// DefaultDailyDays is the Sumrak T20 window: backups from this many distinct
 // recent UTC dates are always kept.
 const DefaultDailyDays = 30
 

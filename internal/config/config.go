@@ -20,7 +20,7 @@ type Config struct {
 	// DataDir is where archives are stored (SYNCD_DATA_DIR, default "./data").
 	DataDir string
 	// RetentionDailyDays is the ring-buffer daily window
-	// (SYNCD_RETENTION_DAYS, default 30 — the T20 rule; change only if the
+	// (SYNCD_RETENTION_DAYS, default 30 — the Sumrak T20 rule; change only if the
 	// app-side rule changes too).
 	RetentionDailyDays int
 	// MaxBodyBytes caps PUT /backup bodies (SYNCD_MAX_BODY_MB, default 64).

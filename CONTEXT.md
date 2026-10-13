@@ -1,8 +1,9 @@
-# SumrakAPI — Repo Glossary
+# AflulitAPI — Repo Glossary
 
-Repo-local terms for the Go backend (v1 scope = exactly `syncd`, design §9 /
-ADR-0015). Cross-repo language lives in the workspace root `CONTEXT.md`
-(Backup snapshot, syncd, Sync state, …).
+Repo-local terms for the Go backend of Aflulit («אַפְלוּלִית»), Mitch's Hebrew-
+learning app. The service is a history-preserving fork of `SumrakAPI@0142268`
+(ADR-0001, ADR-0008): v1 scope = `syncd` (backups) plus, from T12, the Hebrew
+transcription endpoint. Cross-repo language lives in `docs-aflulit/`.
 
 ## Language
 
@@ -13,16 +14,21 @@ holds a key or passphrase (server compromise costs availability, not data).
 _Avoid_: backup contents, payload (that's the app-side decrypted form)
 
 **Backup name**:
-The T20 file-name contract `sumrak-backup-YYYYMMDD-HHMMSSZ.json` (UTC).
+The file-name contract `aflulit-backup-YYYYMMDD-HHMMSSZ.json` (UTC), ADR-0002.
 The name is the archive's id in every endpoint, embeds the snapshot moment
 (retention reasons from names alone, clock-independent), and doubles as the
 path-traversal guard — anything not matching is rejected everywhere.
 
+**Media bundle**:
+`aflulit-media-<runId>.json` — one immutable bundle per finished scenario
+run (or exam attempt, stem `exam-<attemptid>`). Stored, listed and served
+like a snapshot, but never pruned.
+
 **Ring buffer (retention)**:
-The T20 rule ported to Go: keep every archive from the 30 newest distinct
-UTC dates present, plus the latest per older calendar month; never touch
-unparseable names. Runs server-side after every successful `PUT /backup` —
-the app never prunes this target.
+The rule inherited from Sumrak T20, ported to Go: keep every archive from
+the 30 newest distinct UTC dates present, plus the latest per older calendar
+month; never touch unparseable names. Runs server-side after every
+successful `PUT /backup` — the app never prunes this target.
 
 **Bearer token**:
 The single shared secret (`SYNCD_TOKEN` env, ≥16 chars) the app presents on
@@ -31,6 +37,11 @@ every request. Constant-time compared; every route — unknown paths included
 even a health check (an authed `GET /backups` is the health check).
 
 **Tailnet host**:
-How the app reaches syncd: `http://<tailscale-name>:8787` inside Mitch's
-tailnet only. Plain HTTP by design — Tailscale provides transport
+How the app reaches the service: `http://<tailscale-name>:8787` inside
+Mitch's tailnet only. Plain HTTP by design — Tailscale provides transport
 encryption + network auth; no public exposure, no TLS termination.
+
+**Transcription (T12)**:
+`POST /v1/transcriptions` — Whisper `he`/`en` speech-to-text through
+`whisper-ctranslate2` on the home server's GPU. Returns text only, never a
+grade (ADR-0007 §4). Optional `ASR_TOKEN` splits its bearer from `SYNCD_TOKEN`.

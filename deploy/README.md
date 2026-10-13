@@ -12,7 +12,7 @@ a key.)
 ## Prerequisites
 
 - A Linux home server with systemd, joined to the tailnet (`tailscale status`
-  shows it), with the S24 Ultra's Tailscale client able to reach it.
+  shows it), with the phone's Tailscale client able to reach it.
 - Go **not** required on the server if you cross-compile (step 1b).
 
 ## 1. Build
@@ -20,7 +20,7 @@ a key.)
 On the server (with Go ≥ 1.24):
 
 ```sh
-git clone <this repo> && cd SumrakAPI
+git clone git@github.com:mrrobotisreal/aflulit-api.git && cd aflulit-api
 go build -o syncd ./cmd/syncd
 ```
 
@@ -28,8 +28,8 @@ Or cross-compile from the Mac and copy the binary over (pick the arch that
 matches the server — `uname -m` there; `x86_64` → `amd64`, `aarch64` → `arm64`):
 
 ```sh
-GOOS=linux GOARCH=amd64 go build -o syncd-linux ./cmd/syncd
-scp syncd-linux <server>:/tmp/syncd
+make linux          # bin/syncd-linux-amd64   (or: make linux-arm64)
+scp bin/syncd-linux-amd64 <server>:/tmp/syncd
 ```
 
 ## 2. Install
@@ -77,8 +77,9 @@ address both work. Use that same base URL + token in the app:
 ## Operational notes
 
 - **Storage**: archives land in `/var/lib/syncd` as
-  `sumrak-backup-YYYYMMDD-HHMMSSZ.json`, already encrypted by the app.
-  Retention (30 newest daily dates + one per older month — the T20 rule)
+  `aflulit-backup-YYYYMMDD-HHMMSSZ.json`, already encrypted by the app.
+  Retention (30 newest daily dates + one per older month — the ring-buffer rule
+  inherited from Sumrak T20)
   runs automatically after every upload; nothing else to cron.
 - **Token rotation**: edit `/etc/syncd/syncd.env`, `sudo systemctl restart
   syncd`, update the token in the app.

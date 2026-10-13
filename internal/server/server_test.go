@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mrrobotisreal/sumrak-api/internal/storage"
+	"github.com/mrrobotisreal/aflulit-api/internal/storage"
 )
 
 const token = "test-token-0123456789abcdef"
@@ -41,9 +41,9 @@ func do(h http.Handler, method, target, body string, authed bool) *httptest.Resp
 func TestEveryEndpointRequiresAuth(t *testing.T) {
 	h := newHandler(t)
 	for _, c := range []struct{ method, target string }{
-		{http.MethodPut, "/backup?name=sumrak-backup-20260823-120000Z.json"},
+		{http.MethodPut, "/backup?name=aflulit-backup-20260823-120000Z.json"},
 		{http.MethodGet, "/backups"},
-		{http.MethodGet, "/backup/sumrak-backup-20260823-120000Z.json"},
+		{http.MethodGet, "/backup/aflulit-backup-20260823-120000Z.json"},
 		{http.MethodGet, "/anything-else"}, // unknown paths leak nothing either
 	} {
 		if rec := do(h, c.method, c.target, "x", false); rec.Code != http.StatusUnauthorized {
@@ -54,7 +54,7 @@ func TestEveryEndpointRequiresAuth(t *testing.T) {
 
 func TestPutListGetRoundTrip(t *testing.T) {
 	h := newHandler(t)
-	name := "sumrak-backup-20260823-120000Z.json"
+	name := "aflulit-backup-20260823-120000Z.json"
 	payload := `{"v":1,"cipher":{"saltB64":"abc"}}`
 
 	rec := do(h, http.MethodPut, "/backup?name="+name, payload, true)
@@ -113,7 +113,7 @@ func TestPutRejectsBadAndDuplicateNames(t *testing.T) {
 	if rec := do(h, http.MethodPut, "/backup", "x", true); rec.Code != http.StatusBadRequest {
 		t.Fatalf("missing name: expected 400, got %d", rec.Code)
 	}
-	name := "sumrak-backup-20260823-120000Z.json"
+	name := "aflulit-backup-20260823-120000Z.json"
 	if rec := do(h, http.MethodPut, "/backup?name="+name, "x", true); rec.Code != http.StatusCreated {
 		t.Fatalf("first PUT: expected 201, got %d", rec.Code)
 	}
@@ -124,7 +124,7 @@ func TestPutRejectsBadAndDuplicateNames(t *testing.T) {
 
 func TestGetMissingAndBadNames(t *testing.T) {
 	h := newHandler(t)
-	if rec := do(h, http.MethodGet, "/backup/sumrak-backup-20260823-120000Z.json", "", true); rec.Code != http.StatusNotFound {
+	if rec := do(h, http.MethodGet, "/backup/aflulit-backup-20260823-120000Z.json", "", true); rec.Code != http.StatusNotFound {
 		t.Fatalf("missing: expected 404, got %d", rec.Code)
 	}
 	if rec := do(h, http.MethodGet, "/backup/notes.txt", "", true); rec.Code != http.StatusBadRequest {
@@ -138,7 +138,7 @@ func TestPutBodyTooLarge(t *testing.T) {
 		t.Fatal(err)
 	}
 	h := New(store, Options{Token: token, MaxBodyBytes: 10})
-	rec := do(h, http.MethodPut, "/backup?name=sumrak-backup-20260823-120000Z.json",
+	rec := do(h, http.MethodPut, "/backup?name=aflulit-backup-20260823-120000Z.json",
 		"this body is longer than ten bytes", true)
 	if rec.Code != http.StatusRequestEntityTooLarge {
 		t.Fatalf("expected 413, got %d", rec.Code)
@@ -151,11 +151,11 @@ func TestPutTriggersRetentionPrune(t *testing.T) {
 		t.Fatal(err)
 	}
 	h := New(store, Options{Token: token, MaxBodyBytes: 1 << 20})
-	// 39 stored days, then the 40th PUT pushes the window: per the T20 case,
+	// 39 stored days, then the 40th PUT pushes the window: per the Sumrak T20 case,
 	// 40 consecutive days → 9 July files collapse to the July keeper.
 	for i := 0; i < 40; i++ {
 		d := time.Date(2026, 7, 20+i, 3, 0, 0, 0, time.UTC)
-		name := fmt.Sprintf("sumrak-backup-%sZ.json", d.Format("20060102-150405"))
+		name := fmt.Sprintf("aflulit-backup-%sZ.json", d.Format("20060102-150405"))
 		rec := do(h, http.MethodPut, "/backup?name="+name, "x", true)
 		if rec.Code != http.StatusCreated {
 			t.Fatalf("PUT %d: expected 201, got %d", i, rec.Code)

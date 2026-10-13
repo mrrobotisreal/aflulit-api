@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mrrobotisreal/sumrak-api/internal/naming"
+	"github.com/mrrobotisreal/aflulit-api/internal/naming"
 )
 
-// The cases below are ports of the T20 app-side suite
-// (Sumrak features/backup/__tests__/naming-retention.test.ts) — the two
+// The cases below are ports of the Sumrak T20 app-side suite
+// (now Aflulit features/backup/__tests__/naming-retention.test.ts) — the two
 // implementations must stay behaviorally identical.
 
 func nameFor(dateKey, timePart string) string {
@@ -24,17 +24,17 @@ func nameFor(dateKey, timePart string) string {
 			d += string(r)
 		}
 	}
-	return fmt.Sprintf("sumrak-backup-%s-%sZ.json", d, timePart)
+	return fmt.Sprintf("aflulit-backup-%s-%sZ.json", d, timePart)
 }
 
 func fileNameAt(t time.Time) string {
-	return fmt.Sprintf("sumrak-backup-%sZ.json", t.UTC().Format("20060102-150405"))
+	return fmt.Sprintf("aflulit-backup-%sZ.json", t.UTC().Format("20060102-150405"))
 }
 
 func TestNamingRoundTrip(t *testing.T) {
 	at := time.Date(2026, 8, 23, 3, 7, 9, 0, time.UTC)
 	name := fileNameAt(at)
-	if name != "sumrak-backup-20260823-030709Z.json" {
+	if name != "aflulit-backup-20260823-030709Z.json" {
 		t.Fatalf("unexpected name %q", name)
 	}
 	p := naming.Parse(name)
@@ -49,11 +49,11 @@ func TestNamingRoundTrip(t *testing.T) {
 func TestNamingRejects(t *testing.T) {
 	for _, bad := range []string{
 		"manifest.json",
-		"sumrak-backup-20260823-030709.json", // no Z
-		nameFor("2026-13-01", ""),            // month 13
-		nameFor("2026-02-30", ""),            // Feb 30
+		"aflulit-backup-20260823-030709.json", // no Z
+		nameFor("2026-13-01", ""),             // month 13
+		nameFor("2026-02-30", ""),             // Feb 30
 		"../etc/passwd",
-		"sumrak-backup-20260823-030709Z.json.bak",
+		"aflulit-backup-20260823-030709Z.json.bak",
 	} {
 		if naming.Parse(bad) != nil {
 			t.Errorf("expected %q to be rejected", bad)
@@ -134,7 +134,7 @@ func TestOneMonthlyPerDistinctOlderMonth(t *testing.T) {
 
 	olderKept := []string{}
 	for _, n := range plan.Keep {
-		if n < "sumrak-backup-202608" {
+		if n < "aflulit-backup-202608" {
 			olderKept = append(olderKept, n)
 		}
 	}

@@ -1,6 +1,6 @@
-// syncd is Sumrak's backup-sync service (design §9): it accepts encrypted
+// syncd is Aflulit's backup-sync service (design §9): it accepts encrypted
 // backup archives from the app over Tailscale, lists them, serves them back
-// for restore, and applies the T20 ring-buffer retention rule. It never
+// for restore, and applies the Sumrak T20 ring-buffer retention rule. It never
 // decrypts anything — archives are opaque blobs, and neither the passphrase
 // nor any key ever reaches this process.
 package main
@@ -15,9 +15,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mrrobotisreal/sumrak-api/internal/config"
-	"github.com/mrrobotisreal/sumrak-api/internal/server"
-	"github.com/mrrobotisreal/sumrak-api/internal/storage"
+	"github.com/mrrobotisreal/aflulit-api/internal/config"
+	"github.com/mrrobotisreal/aflulit-api/internal/server"
+	"github.com/mrrobotisreal/aflulit-api/internal/storage"
 )
 
 func main() {

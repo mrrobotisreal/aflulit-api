@@ -15,12 +15,12 @@ import (
 	"sort"
 	"time"
 
-	"github.com/mrrobotisreal/sumrak-api/internal/naming"
-	"github.com/mrrobotisreal/sumrak-api/internal/retention"
+	"github.com/mrrobotisreal/aflulit-api/internal/naming"
+	"github.com/mrrobotisreal/aflulit-api/internal/retention"
 )
 
 // ErrExists is returned by Put for a name that is already stored. Mirrors
-// the T20 GitHub target's create-only PUT: collisions fail loudly instead
+// the Sumrak T20 GitHub target's create-only PUT: collisions fail loudly instead
 // of silently overwriting a snapshot.
 var ErrExists = errors.New("backup already exists")
 
@@ -37,9 +37,9 @@ type Info struct {
 	Name string
 	Size int64
 	// Time is the snapshot moment parsed from the name (UTC); for a media
-	// bundle (T63) it is the file's modification time.
+	// bundle (Sumrak T63) it is the file's modification time.
 	Time time.Time
-	// Media marks a T63 scenario media bundle (never pruned).
+	// Media marks a Sumrak T63 scenario media bundle (never pruned).
 	Media bool
 }
 
@@ -115,7 +115,7 @@ func (s *Store) List() ([]Info, error) {
 		if err != nil {
 			continue
 		}
-		// T63 media bundles carry no stamp in the name; their time is the
+		// Sumrak T63 media bundles carry no stamp in the name; their time is the
 		// file's mtime (informational — the app orders them by run, not by
 		// this) and they sort after every snapshot.
 		if p == nil {
@@ -153,7 +153,7 @@ func (s *Store) Open(name string) (io.ReadCloser, int64, error) {
 	return f, fi.Size(), nil
 }
 
-// Prune applies the T20 ring-buffer retention rule and deletes the losers.
+// Prune applies the Sumrak T20 ring-buffer retention rule and deletes the losers.
 // Returns the names actually deleted. A single delete failure aborts with
 // what was deleted so far — the next Put tries again.
 func (s *Store) Prune() ([]string, error) {
@@ -164,7 +164,7 @@ func (s *Store) Prune() ([]string, error) {
 	names := make([]string, 0, len(infos))
 	for _, in := range infos {
 		if in.Media {
-			continue // T63 bundles are immutable and never pruned (§10.3).
+			continue // Sumrak T63 bundles are immutable and never pruned (§10.3).
 		}
 		names = append(names, in.Name)
 	}

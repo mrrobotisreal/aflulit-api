@@ -1,10 +1,11 @@
-// Package naming parses Sumrak backup file names. The name format is the
-// T20 contract (Sumrak app, features/backup/naming.ts): the snapshot moment
-// is embedded in UTC so retention can reason about age from the name alone —
-// server-clock independent, and identical across every backup target.
+// Package naming parses Aflulit backup file names. The name format is the
+// contract shared with the app (Aflulit features/backup/naming.ts, inherited
+// from Sumrak T20): the snapshot moment is embedded in UTC so retention can
+// reason about age from the name alone — server-clock independent, and
+// identical across every backup target.
 //
-// Since T63 (M17) a second family shares the store: scenario media bundles
-// "sumrak-media-<runId>.json" — immutable, one per finished run, never
+// Since Sumrak T63 a second family shares the store: scenario media bundles
+// "aflulit-media-<runId>.json" — immutable, one per finished run, never
 // pruned (design SPEAKING_SCENARIOS §10.3). They are valid names for Put /
 // Open / List but are invisible to retention, which only ever plans over
 // snapshot names.
@@ -15,13 +16,13 @@ import (
 	"time"
 )
 
-// BackupFileRe matches "sumrak-backup-YYYYMMDD-HHMMSSZ.json".
-var BackupFileRe = regexp.MustCompile(`^sumrak-backup-(\d{8})-(\d{6})Z\.json$`)
+// BackupFileRe matches "aflulit-backup-YYYYMMDD-HHMMSSZ.json" (ADR-0002).
+var BackupFileRe = regexp.MustCompile(`^aflulit-backup-(\d{8})-(\d{6})Z\.json$`)
 
-// MediaFileRe matches "sumrak-media-<runId>.json" (T63): the run id is the
+// MediaFileRe matches "aflulit-media-<runId>.json" (Sumrak T63): the run id is the
 // app's row id (base36 time + random, [a-z0-9-]) — no separators, so the
 // name doubles as the path-traversal guard like the snapshot names do.
-var MediaFileRe = regexp.MustCompile(`^sumrak-media-([a-z0-9][a-z0-9-]{3,79})\.json$`)
+var MediaFileRe = regexp.MustCompile(`^aflulit-media-([a-z0-9][a-z0-9-]{3,79})\.json$`)
 
 // Parsed describes one well-formed backup name.
 type Parsed struct {
@@ -57,12 +58,12 @@ func Parse(name string) *Parsed {
 }
 
 // Valid reports whether name is a well-formed backup file name — a snapshot
-// or (T63) a media bundle.
+// or (Sumrak T63) a media bundle.
 func Valid(name string) bool {
 	return Parse(name) != nil || IsMedia(name)
 }
 
-// IsMedia reports whether name is a well-formed media bundle name (T63).
+// IsMedia reports whether name is a well-formed media bundle name (Sumrak T63).
 func IsMedia(name string) bool {
 	return MediaFileRe.MatchString(name)
 }

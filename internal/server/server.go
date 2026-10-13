@@ -5,7 +5,7 @@
 //	GET /backup/{name}       return one archive
 //
 // Every route — and every unknown path — requires bearer auth. Archive
-// names are the T20 file names; the name in the URL is the id.
+// names are the Sumrak T20 file names; the name in the URL is the id.
 package server
 
 import (
@@ -15,8 +15,8 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/mrrobotisreal/sumrak-api/internal/auth"
-	"github.com/mrrobotisreal/sumrak-api/internal/storage"
+	"github.com/mrrobotisreal/aflulit-api/internal/auth"
+	"github.com/mrrobotisreal/aflulit-api/internal/storage"
 )
 
 // Options configures a syncd handler.
@@ -76,7 +76,7 @@ func (s *server) handlePut(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Retention runs after every successful store; a prune failure never
-	// fails the backup itself (mirrors the T20 app-side ordering).
+	// fails the backup itself (mirrors the Sumrak T20 app-side ordering).
 	pruned, pruneErr := s.store.Prune()
 	if pruneErr != nil {
 		s.log.Warn("prune failed", "err", pruneErr, "prunedSoFar", len(pruned))

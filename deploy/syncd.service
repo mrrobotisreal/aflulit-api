@@ -1,8 +1,8 @@
-# systemd unit for syncd — Sumrak's backup-sync service (T21).
+# systemd unit for syncd — Aflulit's backup-sync service (AflulitAPI, ADR-0008).
 # Install: sudo cp deploy/syncd.service /etc/systemd/system/syncd.service
 # See deploy/README.md for the full walkthrough.
 [Unit]
-Description=Sumrak syncd backup service
+Description=Aflulit syncd backup service
 After=network-online.target tailscaled.service
 Wants=network-online.target
 
