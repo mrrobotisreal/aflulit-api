@@ -96,7 +96,20 @@ registered and a backup-only box needs nothing from this section).
 - The `syncd` user in the GPU groups (`SupplementaryGroups=video render`) and
   able to read the venv.
 
-### 4.2 Env + unit
+### 4.2 Binary, env + unit
+
+0. **Reinstall the binary first.** `make linux` only writes
+   `bin/syncd-linux-amd64` into the checkout; `/usr/local/bin/syncd` keeps
+   whatever was installed in §2 until you copy over it again. A binary
+   without ASR ignores every `ASR_*` variable silently — its `syncd
+   listening` log line has **no `asr=` field**, and
+   `strings /usr/local/bin/syncd | grep -c v1/transcriptions` prints `0`.
+
+   ```sh
+   make linux    # or: make linux-arm64 when `uname -m` on the server is aarch64
+   sudo install -m 755 bin/syncd-linux-amd64 /usr/local/bin/syncd
+   strings /usr/local/bin/syncd | grep -c v1/transcriptions   # ≥ 1
+   ```
 
 1. Append the ASR block from `deploy/syncd.env.example` to
    `/etc/syncd/syncd.env`; set `ASR_ENABLED=true`, `WHISPER_CLI`, and pick
