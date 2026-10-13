@@ -133,6 +133,36 @@ registered and a backup-only box needs nothing from this section).
 
 ### 4.3 Smoke after deploying
 
+A `503 transcription_unavailable` means the CLI process failed; the reason is
+in the journal, not the body:
+
+```sh
+journalctl -u syncd -n 20 --no-pager | grep 'transcription failed'
+# → err="whisper CLI failed (exit status 1): … <last 2 KiB of the CLI's stderr> …"
+```
+
+To see the whole thing, run the CLI once by hand **as the service user with
+the service's environment and sandbox** (any 16 kHz mono WAV):
+
+```sh
+sudo systemd-run --pty --wait --collect --unit=syncd-smoke \
+  -p User=syncd -p ProtectSystem=strict -p ProtectHome=true -p PrivateTmp=true \
+  -p ReadWritePaths=/var/lib/syncd -p SupplementaryGroups="video render" \
+  --setenv=HOME=/var/lib/syncd \
+  /opt/creatv/whisper-ct2/bin/whisper-ctranslate2 /var/lib/syncd/smoke.wav \
+    --model ivrit-ai/whisper-large-v3-turbo-ct2 --device cuda --compute_type float16 \
+    --language he --task transcribe --output_dir /var/lib/syncd --output_format json \
+    --verbose False --vad_filter True --condition_on_previous_text False \
+    --beam_size 5 --temperature 0 --temperature_increment_on_fallback None
+```
+
+(Copy `smoke.wav` into `/var/lib/syncd` first; add the unit's other
+`ReadOnlyPaths=`/`Environment=TMPDIR=` lines if §4.2 enabled them.) The usual
+first failures: the venv under `/home` hidden by `ProtectHome=true`; the
+Hugging Face cache not readable (or not writable on first download) by the
+`syncd` user; `/dev/nvidia*` blocked (`DevicePolicy`/`PrivateDevices`); CUDA
+libraries not on the service's path.
+
 Record a 16 kHz mono 16-bit WAV on the phone (the app's recorder format) or
 with `sox … -r 16000 -c 1 -b 16`. Never paste a real token into a shell
 history: `read -rs TOKEN` first, and `HOST=http://<tailnet-hostname>:8787`.

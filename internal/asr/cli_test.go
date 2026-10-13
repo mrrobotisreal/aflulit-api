@@ -196,9 +196,11 @@ func TestSilenceAndLimitsNeverRunCLI(t *testing.T) {
 func TestFailureAndMissingResultCleanUp(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("TMPDIR", root)
-	failing := fixture(t, "exit 70\n", nil)
+	failing := fixture(t, "echo 'RuntimeError: CUDA driver version is insufficient' >&2\nexit 70\n", nil)
 	if _, err := failing.Transcribe(context.Background(), voiceWAV(), "he"); err == nil {
 		t.Fatal("CLI failure accepted")
+	} else if !strings.Contains(err.Error(), "exit status 70") || !strings.Contains(err.Error(), "CUDA driver version is insufficient") {
+		t.Fatalf("failure must carry the exit code and the stderr tail: %v", err)
 	}
 	missing := fixture(t, "exit 0\n", nil)
 	if _, err := missing.Transcribe(context.Background(), voiceWAV(), "he"); err == nil {

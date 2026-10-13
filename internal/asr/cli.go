@@ -63,6 +63,7 @@ var ErrTooLong = errors.New("audio duration exceeds limit")
 // Bounds for the per-request CLI output and temp dir.
 const (
 	maxResultBytes = 1 << 20
+	maxStderrBytes = 2048 // the last 2 KiB of the CLI's stderr survive into the log
 	minSpeechBytes = 3200 // 100 ms — below this the model never runs
 	silenceRMS     = 0.001
 )
@@ -225,13 +226,18 @@ func (r *CLIRunner) Transcribe(ctx context.Context, wav []byte, language string)
 	}
 	cmd := command(ctx, r.cfg.Binary, r.args(input, dir, language)...)
 	cmd.Stdout = io.Discard
-	cmd.Stderr = io.Discard
+	// Keep the tail of stderr: with --verbose False the CLI prints only its
+	// own diagnostics there (a Python traceback, a CUDA or model error),
+	// never the transcript, and that tail is what a 503 needs to explain.
+	var stderr tailBuffer
+	stderr.max = maxStderrBytes
+	cmd.Stderr = &stderr
 	cmd.Env = r.childEnv()
 	if err := cmd.Run(); err != nil {
 		if ctx.Err() != nil {
 			return res, ctx.Err()
 		}
-		return res, errors.New("whisper CLI failed; run the deploy smoke as the service user to inspect CUDA/model setup")
+		return res, fmt.Errorf("whisper CLI failed (%v): %s", err, stderr.Tail())
 	}
 	f, err := os.Open(filepath.Join(dir, "utterance.json"))
 	if err != nil {
@@ -315,4 +321,28 @@ func (b *cappedBuffer) Write(p []byte) (int, error) {
 		return 0, errors.New("process output exceeds limit")
 	}
 	return b.Buffer.Write(p)
+}
+
+// tailBuffer keeps only the last max bytes written — enough of a traceback
+// to name the failure without letting a chatty child grow memory.
+type tailBuffer struct {
+	buf []byte
+	max int
+}
+
+func (b *tailBuffer) Write(p []byte) (int, error) {
+	b.buf = append(b.buf, p...)
+	if len(b.buf) > b.max {
+		b.buf = append([]byte(nil), b.buf[len(b.buf)-b.max:]...)
+	}
+	return len(p), nil
+}
+
+// Tail returns the retained stderr as one trimmed, single-line string.
+func (b *tailBuffer) Tail() string {
+	t := strings.TrimSpace(string(b.buf))
+	if t == "" {
+		return "(no stderr)"
+	}
+	return strings.Join(strings.Fields(t), " ")
 }
