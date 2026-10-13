@@ -4,19 +4,20 @@
 > `scp` or touch the home server. Everything below is meant to be followed
 > verbatim.
 
-`syncd` runs on the home server and is reached **only over Tailscale** — it is
-never exposed to the public internet. Tailscale's WireGuard tunnel provides
-transport encryption and network-level authentication, which is why syncd
-itself speaks plain HTTP with bearer auth on top: TLS termination inside the
-tailnet would add certificate management for no additional threat-model win.
+`syncd` listens on plain HTTP on the home server (`:8787`) and is reached
+from the app **over HTTPS at `https://aflulit.creatv.dev`**, a Cloudflare
+Tunnel that terminates TLS at Cloudflare and forwards to `localhost:8787` on
+the server (Mitch, 2026-10-13; this replaces the Tailscale-only reachability
+inherited from Sumrak — no Tailscale is involved anywhere). The bearer token
+is the whole auth model: every route requires it, including unknown paths.
 (The archives are additionally AES-256-GCM-encrypted end-to-end by the app
 before they ever leave the phone — syncd stores opaque blobs and never holds
 a key.)
 
 ## Prerequisites
 
-- A Linux home server with systemd, joined to the tailnet (`tailscale status`
-  shows it), with the phone's Tailscale client able to reach it.
+- A Linux home server with systemd and a `cloudflared` tunnel whose public
+  hostname `aflulit.creatv.dev` routes to `http://localhost:8787`.
 - Go **not** required on the server if you cross-compile (step 1b).
 
 ## 1. Build
@@ -61,10 +62,10 @@ reboot-survival requirement; verify with a real reboot below.
 systemctl status syncd            # active (running)
 journalctl -u syncd -f            # logs (stdout goes to the journal)
 
-# From any tailnet machine (token from /etc/syncd/syncd.env):
-curl -H "Authorization: Bearer $TOKEN" http://<tailnet-hostname>:8787/backups
+# From anywhere (token from /etc/syncd/syncd.env; `read -rs TOKEN` first):
+curl -H "Authorization: Bearer $TOKEN" https://aflulit.creatv.dev/backups
 # → {"backups":[]}
-curl http://<tailnet-hostname>:8787/backups
+curl https://aflulit.creatv.dev/backups
 # → 401 {"error":"unauthorized"}
 
 # Reboot survival:
@@ -73,10 +74,10 @@ sudo reboot
 systemctl status syncd            # active (running) again, no manual step
 ```
 
-The tailnet hostname is whatever `tailscale status` calls the server (e.g.
-`homeserver` → `http://homeserver:8787`); MagicDNS names and the `100.x.y.z`
-address both work. Use that same base URL + token in the app:
-**Settings → Backup → Home server (syncd)**.
+The app is built with this host and token baked in (`Aflulit/.env`
+`SYNCD_TOKEN`, host `https://aflulit.creatv.dev`), so nothing is typed on the
+phone; **Settings → Backup → Home server (syncd)** still shows the target and
+lets you override it.
 
 ## 4. ASR — `POST /v1/transcriptions` (T12, ADR-0008 §2)
 
@@ -115,8 +116,19 @@ registered and a backup-only box needs nothing from this section).
    `/etc/syncd/syncd.env`; set `ASR_ENABLED=true`, `WHISPER_CLI`, and pick
    `ASR_MODEL`:
    - `large-v3` (default, multilingual), or
-   - `ivrit-ai/whisper-large-v3-turbo-ct2` — the recommended Hebrew fine-tune
-     (Apache-2.0; see "Verify on the server" below).
+   - **the ivrit-ai turbo fine-tune (recommended, Apache-2.0)** — the CLI's
+     `--model` only accepts its own size names, so clone the CTranslate2
+     build once and point the directory variable at it:
+     ```sh
+     sudo mkdir -p /opt/creatv/models && cd /opt/creatv/models
+     sudo git lfs install && sudo git clone https://huggingface.co/ivrit-ai/whisper-large-v3-turbo-ct2
+     sudo chown -R syncd:syncd whisper-large-v3-turbo-ct2
+     ```
+     then `ASR_MODEL=large-v3-turbo` and
+     `WHISPER_MODEL_DIRECTORY=/opt/creatv/models/whisper-large-v3-turbo-ct2`
+     (add `/opt/creatv` to `ReadOnlyPaths=` if the unit lists any). Responses
+     then report `"model":"whisper-large-v3-turbo-ct2"`.
+   - `ASR_COMPUTE_TYPE=int8` — `float16` fails on the home server's GPU.
 2. Uncomment the "ASR additions" in `deploy/syncd.service` (groups, read-only
    venv + cache paths, `TMPDIR` on a disk with room, `MemoryMax`), then
    `sudo mkdir -p /var/tmp/syncd-asr && sudo chown syncd:syncd /var/tmp/syncd-asr`.
@@ -165,7 +177,7 @@ libraries not on the service's path.
 
 Record a 16 kHz mono 16-bit WAV on the phone (the app's recorder format) or
 with `sox … -r 16000 -c 1 -b 16`. Never paste a real token into a shell
-history: `read -rs TOKEN` first, and `HOST=http://<tailnet-hostname>:8787`.
+history: `read -rs TOKEN` first, and `HOST=https://aflulit.creatv.dev`.
 
 ```sh
 # Hebrew (default language) — expect 200 with Hebrew `text`, your ASR_MODEL in `model`
@@ -190,19 +202,22 @@ GPU job at a time), `503 transcription_unavailable` (CLI failure or timeout —
 check `journalctl -u syncd`; the log carries the request id, never the
 transcript or the audio).
 
-### 4.4 Verify on the server (open questions this ticket could not settle on a Mac)
+### 4.4 Verified on the server (2026-10-13, first real inference)
 
-1. **Turbo model id.** Whether the installed `whisper-ctranslate2` accepts
-   `ASR_MODEL=ivrit-ai/whisper-large-v3-turbo-ct2` as a Hugging Face id for
-   `--model`, or needs the repo downloaded and passed as a local path via
-   `WHISPER_MODEL_DIRECTORY`. Try the id first; `--check` passes either way
-   (it only probes `--help`), so the first smoke request is the real test.
-2. **`words` shape.** With `ASR_WORD_TIMESTAMPS=true`, whether the CLI's JSON
-   carries `segments[].words[{word,start,end}]`. If it does, responses gain
-   `words:[{word,startMs,endMs}]`; if not, `words` is simply absent and
-   nothing in the app depends on it (T14/T16 do not).
-
-Record both answers in the T12 Session log.
+1. **Turbo model id — a Hugging Face id is NOT accepted.** The installed
+   `whisper-ctranslate2` prints `--model` as a fixed choice list (`tiny … large-v3,
+   large-v3-turbo, turbo, distil-*`) and exits 2 on anything else. Custom
+   weights go through `WHISPER_MODEL_DIRECTORY` (§4.2). `syncd --check` now
+   refuses an `ASR_MODEL` outside that list with the directory hint.
+2. **`words` shape — yes.** With `ASR_WORD_TIMESTAMPS=true` the CLI's JSON
+   carries `segments[].words[{word,start,end}]`; responses carry
+   `words:[{word,startMs,endMs}]` (19 words on a 9 s clip, monotonic).
+3. Measured: a 9 s Hebrew clip → correct text in **~8 s wall** (the CLI
+   reloads the model per request — Ilan's note; a resident worker is a later
+   optimisation), silence → 0.5 s, second concurrent request → `429 busy`
+   in 0.9 s. `language=en` on the same Hebrew clip returned the Hebrew text
+   (the fine-tune leans Hebrew); on an English clip, `en` and `he` both
+   returned the English text.
 
 ## Operational notes
 

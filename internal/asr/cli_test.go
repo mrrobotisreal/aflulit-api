@@ -267,6 +267,35 @@ func TestCheckNamesMissingFlag(t *testing.T) {
 	}
 }
 
+// The installed CLI's --help prints --model as a choice list; a Hugging Face
+// id is refused at --check time with the WHISPER_MODEL_DIRECTORY hint (found
+// on the home server in T12 — the first real request 503'd otherwise).
+func TestCheckRejectsModelOutsideChoiceList(t *testing.T) {
+	help := "usage: whisper-ctranslate2 [--model {tiny,base,small,medium,large-v3,large-v3-turbo,turbo}] --device --compute_type --language --task --output_dir --output_format --verbose --vad_filter --condition_on_previous_text --beam_size --temperature --temperature_increment_on_fallback --model_directory"
+	if err := checkModelChoice(help, "ivrit-ai/whisper-large-v3-turbo-ct2"); err == nil || !strings.Contains(err.Error(), "WHISPER_MODEL_DIRECTORY") {
+		t.Fatalf("HF id must be refused with the directory hint: %v", err)
+	}
+	for _, ok := range []string{"large-v3", "large-v3-turbo", "tiny"} {
+		if err := checkModelChoice(help, ok); err != nil {
+			t.Fatalf("%s must pass: %v", ok, err)
+		}
+	}
+	if err := checkModelChoice("usage: --model MODEL --device", "anything/goes"); err != nil {
+		t.Fatalf("free-form --model must pass: %v", err)
+	}
+}
+
+func TestModelLabelReportsLoadedWeights(t *testing.T) {
+	plain := fixture(t, "", nil)
+	if got := plain.modelLabel(); got != testModel {
+		t.Fatalf("label without a directory = %q", got)
+	}
+	dir := fixture(t, "", func(c *CLIConfig) { c.ModelDirectory = "/opt/creatv/models/whisper-large-v3-turbo-ct2/" })
+	if got := dir.modelLabel(); got != "whisper-large-v3-turbo-ct2" {
+		t.Fatalf("label with a directory = %q", got)
+	}
+}
+
 // Golden: the JSON shape of Result is the response contract T14 consumes
 // (ADR-0008 §2): text, optional words[{word,startMs,endMs}], model, durationMs.
 func TestResultJSONGolden(t *testing.T) {

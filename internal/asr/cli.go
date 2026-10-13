@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -138,7 +139,40 @@ func (r *CLIRunner) Check(ctx context.Context) error {
 			return fmt.Errorf("installed whisper-ctranslate2 lacks required option %s", flag)
 		}
 	}
-	return nil
+	return checkModelChoice(text, r.cfg.Model)
+}
+
+// checkModelChoice rejects an ASR_MODEL the CLI's --model would refuse. The
+// CLI (whisper-ctranslate2 ≥ 0.4) prints --model as a fixed choice list
+// "{tiny,...,large-v3,large-v3-turbo,...}" in --help; a Hugging Face id or a
+// path is not in it (verified on the home server, T12) — custom weights go
+// through WHISPER_MODEL_DIRECTORY instead. A --help without such a list
+// (older CLI, free-form --model) passes.
+func checkModelChoice(help, model string) error {
+	m := modelChoicesRe.FindStringSubmatch(help)
+	if m == nil {
+		return nil
+	}
+	for _, choice := range strings.Split(m[1], ",") {
+		if strings.TrimSpace(choice) == model {
+			return nil
+		}
+	}
+	return fmt.Errorf("ASR_MODEL %q is not a --model choice of the installed whisper-ctranslate2 {%s}; "+
+		"for custom weights set ASR_MODEL to a listed size (e.g. large-v3-turbo) and WHISPER_MODEL_DIRECTORY to the model directory", model, m[1])
+}
+
+var modelChoicesRe = regexp.MustCompile(`--model\s+\{([^}]+)\}`)
+
+// modelLabel is what Result.Model reports: the weights actually loaded. With
+// WHISPER_MODEL_DIRECTORY set the CLI ignores --model's name and loads the
+// directory, so the label is the directory's base name (e.g.
+// "whisper-large-v3-turbo-ct2"); otherwise it is ASR_MODEL.
+func (r *CLIRunner) modelLabel() string {
+	if r.cfg.ModelDirectory != "" {
+		return filepath.Base(filepath.Clean(r.cfg.ModelDirectory))
+	}
+	return r.cfg.Model
 }
 
 // args builds the CLI argument vector. --initial_prompt, --prefix and
@@ -185,7 +219,7 @@ func (r *CLIRunner) args(input, outDir, language string) []string {
 // no free slot it returns ErrBusy at once (the app's cellular timeout is
 // short; queueing would only waste it).
 func (r *CLIRunner) Transcribe(ctx context.Context, wav []byte, language string) (Result, error) {
-	res := Result{Model: r.cfg.Model}
+	res := Result{Model: r.modelLabel()}
 	if !Languages[language] {
 		return res, ErrUnsupportedLanguage
 	}

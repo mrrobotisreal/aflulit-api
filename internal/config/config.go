@@ -14,8 +14,8 @@ import (
 // Config is everything the service needs to run.
 type Config struct {
 	// Addr is the listen address (SYNCD_ADDR, default ":8787"). On the home
-	// server this can stay a wildcard bind — Tailscale is the only network
-	// path in (deploy notes) — or be pinned to the tailnet IP.
+	// server bind loopback (127.0.0.1:8787): the Cloudflare Tunnel on the
+	// same host is the only intended way in (deploy notes).
 	Addr string
 	// Token is the required bearer token (SYNCD_TOKEN).
 	Token string

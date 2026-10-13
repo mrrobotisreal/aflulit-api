@@ -6,7 +6,8 @@ The Go backend for [Aflulit](https://github.com/mrrobotisreal/aflulit)
 the `syncd` backup service renamed for Aflulit, with the Hebrew speech-to-text
 endpoint added on top.
 
-`syncd` runs on the home server, is reachable only over Tailscale, and stores
+`syncd` runs on the home server, is reached over HTTPS at
+`https://aflulit.creatv.dev` (a Cloudflare Tunnel to `localhost:8787`), and stores
 the app's **encrypted** backup snapshots and scenario media bundles as opaque
 blobs. It never decrypts anything — the passphrase and derived key exist only
 on the phone.
@@ -22,8 +23,7 @@ on the phone.
 
 Every route (including unknown paths) requires `Authorization: Bearer
 <token>`; there is deliberately no unauthenticated endpoint, not even a
-health check — Tailscale reachability plus an authed `GET /backups` is the
-health check.
+health check — an authed `GET /backups` is the health check.
 
 Transcription errors: `400 audio_file_required` / `unsupported_language`,
 `415 unsupported_audio_format`, `413 audio_too_long` / `invalid_audio_size`,
@@ -98,7 +98,7 @@ downloaded or run on a development machine.
 ## Deploy
 
 See [`deploy/README.md`](deploy/README.md) — build, systemd install,
-Tailscale notes, reboot-survival verification. Deploying is Mitch's step;
+the Cloudflare Tunnel host, ASR setup, reboot-survival verification. Deploying is Mitch's step;
 agents never touch the home server.
 
 ## Fork point

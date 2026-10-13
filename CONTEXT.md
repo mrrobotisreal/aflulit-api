@@ -36,10 +36,12 @@ every request. Constant-time compared; every route — unknown paths included
 — 401s without it. There is deliberately no unauthenticated endpoint, not
 even a health check (an authed `GET /backups` is the health check).
 
-**Tailnet host**:
-How the app reaches the service: `http://<tailscale-name>:8787` inside
-Mitch's tailnet only. Plain HTTP by design — Tailscale provides transport
-encryption + network auth; no public exposure, no TLS termination.
+**Public host**:
+How the app reaches the service: `https://aflulit.creatv.dev`, a Cloudflare
+Tunnel that terminates TLS and forwards to `localhost:8787` on the home
+server (2026-10-13; replaced the Tailscale-only reachability inherited from
+Sumrak). syncd itself speaks plain HTTP on loopback; the bearer token is the
+whole auth model.
 
 **Transcription (T12)**:
 `POST /v1/transcriptions` — Whisper `he`/`en` speech-to-text through

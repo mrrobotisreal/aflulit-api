@@ -1,5 +1,6 @@
 // syncd is Aflulit's home-server service (ADR-0008): it accepts encrypted
-// backup archives from the app over Tailscale, lists them, serves them back
+// backup archives from the app (over the Cloudflare Tunnel at
+// aflulit.creatv.dev), lists them, serves them back
 // for restore, and applies the Sumrak T20 ring-buffer retention rule. It never
 // decrypts anything — archives are opaque blobs, and neither the passphrase
 // nor any key ever reaches this process. With ASR_ENABLED=true it also
